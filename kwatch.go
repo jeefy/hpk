@@ -1,6 +1,7 @@
 package hpk
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -54,7 +55,9 @@ func KWatch() {
 				if resource, ok := obj.(*apiv1batch.Job); ok {
 					c := session.DB("hpk").C("jobs")
 
-					err := c.Update(bson.M{"name": resource.GetName()}, bson.M{"$push": bson.M{"changelog": *resource}})
+					bsonjson := JSONtoBSON(resource)
+
+					err := c.Update(bson.M{"name": resource.GetName()}, bson.M{"$push": bson.M{"changelog": bsonjson}})
 					if err != nil {
 						log.Panic(err)
 					}
@@ -64,7 +67,8 @@ func KWatch() {
 			AddFunc: func(obj interface{}) {
 				if resource, ok := obj.(*apiv1batch.Job); ok {
 					c := session.DB("hpk").C("jobs")
-					err := c.Insert(bson.M{"name": resource.GetName(), "changelog": []apiv1batch.Job{*resource}})
+					bsonjson := JSONtoBSON(resource)
+					err := c.Insert(bson.M{"name": resource.GetName(), "changelog": []interface{}{bsonjson}})
 					if err != nil {
 						log.Panic(err)
 					}
@@ -80,7 +84,8 @@ func KWatch() {
 								log.Info(fmt.Sprintf("Job %s@%s updated\n", newJob.Name, newJob.Namespace))
 								log.Debug(fmt.Sprintf("%s: Job diff: (-old +new)\n%s", newJob.Name, diff))
 								c := session.DB("hpk").C("jobs")
-								err := c.Update(bson.M{"name": newJob.GetName()}, bson.M{"$push": bson.M{"changelog": *newJob}})
+								bsonjson := JSONtoBSON(newJob)
+								err := c.Update(bson.M{"name": newJob.GetName()}, bson.M{"$push": bson.M{"changelog": bsonjson}})
 								if err != nil {
 									log.Panic(err)
 								}
@@ -122,4 +127,14 @@ func KWatch() {
 	)
 	// Can't stop won't stop.
 	ctrl.Run(wait.NeverStop)
+}
+
+func JSONtoBSON(object interface{}) interface{} {
+	jsonObj, err := json.Marshal(object)
+	var bsonjson interface{}
+	err = bson.UnmarshalJSON(jsonObj, &bsonjson)
+	if err != nil {
+		panic(err)
+	}
+	return bsonjson
 }

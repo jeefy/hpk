@@ -24299,7 +24299,7 @@
 	                _react2.default.createElement(
 	                  _reactMoment2.default,
 	                  { format: 'YYYY-MM-DD HH:mm' },
-	                  job.changelog[0].objectmeta.creationtimestamp.time.replace('T', ' ')
+	                  job.changelog[0].metadata.creationTimestamp.replace('T', ' ')
 	                )
 	              ),
 	              _react2.default.createElement(
@@ -24308,7 +24308,7 @@
 	                _react2.default.createElement(
 	                  _reactMoment2.default,
 	                  { format: 'YYYY-MM-DD HH:mm' },
-	                  job.changelog[job.changelog.length - 1].status.completiontime.time.replace('T', ' ')
+	                  job.changelog[job.changelog.length - 1].status.completionTime.replace('T', ' ')
 	                )
 	              ),
 	              _react2.default.createElement(

@@ -40,12 +40,12 @@ class JobListComponent extends React.Component {
                 <td><a target="_blank" href={"/jobs/" + job.name}>{job.name}</a></td>
                 <td>
                   <Moment format="YYYY-MM-DD HH:mm">
-                    {job.changelog[0].objectmeta.creationtimestamp.time.replace('T', ' ')}
+                    {job.changelog[0].metadata.creationTimestamp.replace('T', ' ')}
                   </Moment>
                 </td>
                 <td>
                   <Moment format="YYYY-MM-DD HH:mm">
-                    {job.changelog[job.changelog.length-1].status.completiontime.time.replace('T', ' ')}
+                    {job.changelog[job.changelog.length-1].status.completionTime.replace('T', ' ')}
                   </Moment>
                 </td>
                 <td>{job.changelog[0].spec.template.spec.containers[0].command.join(' ')}</td>

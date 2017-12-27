@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -45,13 +46,24 @@ func ParseKubeconfig() *string {
 }
 
 // ParseCmdArgs(): Dirty thing to handle arg parsing properly
+/*
+hpk-num-nodes
+hpk-base-image
+hpk-pull-policy
+hpk-default-namespace
+hpk-max-cpu
+hpk-max-memory
+*/
 func ParseCmdArgs() (hpkJob, *string) {
 	kubeconfig := ParseKubeconfig()
-	image := flag.String("image", "ubuntu", "Container image to run")
-	imgpullpol := flag.String("imagepullpolicy", "Always", "Pull policy for the container. (Default: Always. Others: IfNotPresent,Never")
+	numnodeconv, _ := strconv.ParseInt(GetConfigKey(kubeconfig, "hpk-num-nodes"), 10, 16)
+	image := flag.String("image", GetConfigKey(kubeconfig, "hpk-base-image"), "Container image to run")
+	imgpullpol := flag.String("imagepullpolicy", GetConfigKey(kubeconfig, "hpk-pull-policy"), "Pull policy for the container. (Default: Always. Others: IfNotPresent,Never")
 	loglevelstr := flag.String("loglevel", "warning", "Logs to display (Default: warning. Others: debug,info,error,fatal,panic)")
-	kubenamespace := flag.String("namespace", "kube-public", "namespace to run jobs in")
-	numnodes := flag.Int("numnodes", 1, "Number of nodes")
+	kubenamespace := flag.String("namespace", GetConfigKey(kubeconfig, "hpk-default-namespace"), "namespace to run jobs in")
+	numnodes := flag.Int("numnodes", int(numnodeconv), "Number of nodes")
+	maxcpu := flag.String("maxcpu", GetConfigKey(kubeconfig, "hpk-max-cpu"), "Max CPU per node")
+	maxmemory := flag.String("maxmemory", GetConfigKey(kubeconfig, "hpk-max-memory"), "Max memory per node")
 
 	flag.Parse()
 
@@ -80,6 +92,8 @@ func ParseCmdArgs() (hpkJob, *string) {
 		ImagePullPolicy: *imgpullpol,
 		JobName:         GenerateJobName(),
 		NumNodes:        *numnodes,
+		MaxCPU:          *maxcpu,
+		MaxMemory:       *maxmemory,
 		Namespace:       *kubenamespace,
 	}
 
@@ -94,6 +108,14 @@ func GetDeploymentClient(kubeconfig *string) v1beta1.DeploymentInterface {
 	deploymentClient := clientset.Extensions().Deployments("kube-system")
 
 	return deploymentClient
+}
+
+func GetConfigKey(kubeconfig *string, key string) string {
+	config := GetFullConfig(kubeconfig)
+	if val, ok := config[key]; ok {
+		return val
+	}
+	return ""
 }
 
 func GetFullConfig(kubeconfig *string) map[string]string {
