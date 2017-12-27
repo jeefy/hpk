@@ -1,0 +1,57 @@
+box: golang
+
+build:
+  steps:
+    - setup-go-workspace:
+        package-dir: github.com/cgrant/go-react
+
+    - script:
+        name: env
+        code: env
+
+    - script:
+        name: go get
+        code: |
+
+          cd $WERCKER_SOURCE_DIR
+          go version
+          export PATH=$WERCKER_SOURCE_DIR/bin:$PATH
+          go get
+    - script:
+        name: node pre-reqs
+        code: |
+          curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.1/install.sh | bash
+          source $HOME/.nvm/nvm.sh
+          nvm install 4
+          nvm use 4
+          npm install -g webpack
+    - script:
+        name: npm install
+        code: |
+          npm install -i
+    - script:
+        name: create React bundle
+        code: |
+          npm run build
+    - script:
+        name: go test
+        code: |
+          # go test ./server -v -race
+    - script:
+        name: go build
+        code: |
+          go build
+    - script:
+        name: copy files to wercker output
+        code: |
+          cp -R ./ ${WERCKER_OUTPUT_DIR}
+          cd $WERCKER_OUTPUT_DIR
+deploy:
+ steps:
+   - internal/docker-push:
+       username: $DH_USERNAME
+       password: $DH_PASSWORD
+       cmd: /pipeline/source/go-react
+       port: "8080"
+       tag: latest
+       repository: cgrant/go-react
