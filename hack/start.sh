@@ -9,7 +9,10 @@ else
   echo "Starting fresh!";
 fi
 
-minikube start --memory 8192
+minikube start --memory 4096
+
+docker rm -f kjob-mongo
+docker run --name kjob-mongo -p 27017:27017 -d mongo
 
 #pwd=$(pwd)
 
