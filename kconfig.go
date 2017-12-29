@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	apiv1batch "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	v1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
@@ -108,6 +109,16 @@ func GetDeploymentClient(kubeconfig *string) v1beta1.DeploymentInterface {
 	deploymentClient := clientset.Extensions().Deployments("kube-system")
 
 	return deploymentClient
+}
+
+func GetCPUCost(kubeconfig *string, job *apiv1batch.Job) string {
+	log.Info("Checking allocation for " + job.GetName())
+	return GetConfigKey(kubeconfig, "hpk-cost-cpu")
+}
+
+func GetMemoryCost(kubeconfig *string, job *apiv1batch.Job) string {
+	log.Info("Checking allocation for " + job.GetName())
+	return GetConfigKey(kubeconfig, "hpk-cost-memory")
 }
 
 func GetConfigKey(kubeconfig *string, key string) string {

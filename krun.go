@@ -92,9 +92,9 @@ func KRun() {
 											log.Panic(err)
 										}
 										fmt.Printf(string(logs[:]))
-										podsClient.Delete(pod.GetObjectMeta().GetName(), &metav1.DeleteOptions{})
+										//podsClient.Delete(pod.GetObjectMeta().GetName(), &metav1.DeleteOptions{})
 									}
-									jobsClient.Delete(newJob.Name, &metav1.DeleteOptions{})
+									//jobsClient.Delete(newJob.Name, &metav1.DeleteOptions{})
 									os.Exit(0)
 								}
 							}

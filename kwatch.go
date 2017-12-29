@@ -90,9 +90,24 @@ func KWatch() {
 									log.Panic(err)
 								}
 								if oldJob.Status.CompletionTime == nil && newJob.Status.CompletionTime != nil {
+									c := session.DB("hpk").C("jobs_usage")
+									c.Insert(bson.M{
+										"name":        newJob.GetName(),
+										"start":       newJob.Status.StartTime.Time,
+										"end":         newJob.Status.CompletionTime.Time,
+										"cpu_str":     newJob.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().String(),
+										"memory_str":  newJob.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().String(),
+										"cpu_val":     newJob.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().MilliValue(),
+										"memory_val":  newJob.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value(),
+										"cpu_cost":    GetCPUCost(kubeconfig, newJob),
+										"memory_cost": GetMemoryCost(kubeconfig, newJob),
+										"parallelism": newJob.Spec.Parallelism,
+									})
 									log.Info(fmt.Sprintf("Job %s@%s completed\n", newJob.Name, newJob.Namespace))
 									podsClient := clientset.CoreV1().Pods(newJob.Namespace)
-									podList, err := podsClient.List(metav1.ListOptions{})
+									podList, err := podsClient.List(metav1.ListOptions{
+										LabelSelector: "job-name = " + newJob.GetName(),
+									})
 									if err != nil {
 										log.Panic(err)
 									}
@@ -104,7 +119,7 @@ func KWatch() {
 											log.Panic(err)
 										}
 										log.Info(fmt.Sprintf("Pod logs scraped for  %s\n", pod.GetObjectMeta().GetName()))
-										c := session.DB("hpk").C("job_logs")
+										c := session.DB("hpk").C("jobs_logs")
 										err = c.Insert(&hpkJobLog{
 											JobName: newJob.Name,
 											PodName: pod.GetObjectMeta().GetName(),
@@ -114,9 +129,8 @@ func KWatch() {
 											log.Panic(err)
 										}
 										//fmt.Printf(string(logs[:]))
-										//podsClient.Delete(pod.GetObjectMeta().GetName(), &metav1.DeleteOptions{})
 									}
-									//jobsClient.Delete(newJob.Name, &metav1.DeleteOptions{})
+									jobsClient.Delete(newJob.Name, &metav1.DeleteOptions{})
 								}
 							}
 						}

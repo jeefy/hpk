@@ -49,6 +49,7 @@ func KApi() {
 	r.HandleFunc("/allocations", AllocationsCategoryHandler).Methods("GET")
 	r.HandleFunc("/allocations/{id}", AllocationsHandler).Methods("GET", "PUT", "POST")
 	r.HandleFunc("/jobs", JobsCategoryHandler).Methods("GET")
+	r.HandleFunc("/jobs_use/{id}", JobsUseHandler).Methods("GET")
 	r.HandleFunc("/jobs/{id}", JobsHandler).Methods("GET")
 	r.HandleFunc("/jobs/{id}/logs", JobsLogsHandler).Methods("GET")
 	r.PathPrefix("/dashboard/").Handler(http.StripPrefix("/dashboard/", http.FileServer(http.Dir("./kdash/static/"))))
@@ -67,13 +68,48 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func AllocationsCategoryHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Allocations Category!")
+	if r.Method == "GET" {
+		session := MongoConnect()
+		jobsQuery := session.DB("hpk").C("allocations")
+
+		var m []bson.M
+		jobsQuery.Find(nil).Sort("name").All(&m)
+		w.WriteHeader(http.StatusOK)
+		jsonData, err := json.Marshal(m)
+		if err != nil {
+			log.Info(err)
+		}
+		fmt.Fprintf(w, "%s", string(jsonData[:]))
+	}
 }
 
 func AllocationsHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Allocations!")
+	vars := mux.Vars(r)
+	session := MongoConnect()
+	jobsQuery := session.DB("hpk").C("allocations")
+	if r.Method == "GET" {
+		var m []bson.M
+
+		jobsQuery.Find(bson.M{"name": vars["id"]}).All(&m)
+		w.WriteHeader(http.StatusOK)
+		jsonData, err := json.Marshal(m)
+		if err != nil {
+			log.Info(err)
+		}
+		fmt.Fprintf(w, "%s", string(jsonData[:]))
+	}
+	if r.Method == "POST" || r.Method == "PUT" {
+		c := session.DB("hpk").C("jobs")
+		object, err := c.Upsert(bson.M{"name": vars["id"]}, bson.M{"changelog": r.Form})
+		if err != nil {
+			log.Info(err)
+		}
+		jsonData, err := json.Marshal(object)
+		if err != nil {
+			log.Info(err)
+		}
+		fmt.Fprintf(w, "%s", string(jsonData[:]))
+	}
 }
 
 func ConfigHandler(w http.ResponseWriter, r *http.Request, kubeconfig *string) {
@@ -113,14 +149,6 @@ func ConfigKeyHandler(w http.ResponseWriter, r *http.Request, kubeconfig *string
 	}
 	fmt.Fprintf(w, "%s", string(jsonData[:]))
 }
-
-/*
-func AllocationsCategoryHandler(w http.ResponseWriter, r *http.Request) {
-}
-
-func AllocationsHandler(w http.ResponseWriter, r *http.Request) {
-}
-*/
 func JobsCategoryHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		session := MongoConnect()
@@ -128,6 +156,23 @@ func JobsCategoryHandler(w http.ResponseWriter, r *http.Request) {
 
 		var m []bson.M
 		jobsQuery.Find(nil).Sort("-name").All(&m)
+		w.WriteHeader(http.StatusOK)
+		jsonData, err := json.Marshal(m)
+		if err != nil {
+			log.Info(err)
+		}
+		fmt.Fprintf(w, "%s", string(jsonData[:]))
+	}
+}
+
+func JobsUseHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		vars := mux.Vars(r)
+		session := MongoConnect()
+		jobsQuery := session.DB("hpk").C("jobs_usage")
+
+		var m []bson.M
+		jobsQuery.Find(bson.M{"name": vars["id"]}).All(&m)
 		w.WriteHeader(http.StatusOK)
 		jsonData, err := json.Marshal(m)
 		if err != nil {

@@ -24218,7 +24218,8 @@
 	    var _this = _possibleConstructorReturn(this, (JobListComponent.__proto__ || Object.getPrototypeOf(JobListComponent)).call(this, props));
 	
 	    _this.state = {
-	      jobs: []
+	      jobs: [],
+	      costs: {}
 	    };
 	    return _this;
 	  }
@@ -24228,11 +24229,20 @@
 	    value: function componentDidMount() {
 	      var _this2 = this;
 	
-	      _axios2.default.get('/jobs').then(function (res) {
-	        _this2.setState({ "jobs": res.data });
+	      _axios2.default.get('/jobs').then(function (jobs) {
+	        _this2.setState({ "jobs": jobs.data });
+	        jobs.data.map(function (job) {
+	          _axios2.default.get('/jobs_use/' + job.name).then(function (res) {
+	            var use = res.data[0];
+	            var cost = use.parallelism * (use.cpu_cost * (use.cpu_val / 1000) + use.memory_cost * (use.memory_val / 1000));
+	            console.log("It cost " + cost);
+	            var costs = _this2.state.costs;
+	            costs[job.name] = cost;
+	            _this2.setState({ "jobs": jobs.data, "costs": costs });
+	          });
+	        });
 	      });
 	    }
-	
 	    /* {this.state.jobs.map(job =>
 	      <JobComponent job={job} />
 	    )}*/
@@ -24240,6 +24250,8 @@
 	  }, {
 	    key: 'render',
 	    value: function render() {
+	      var _this3 = this;
+	
 	      return _react2.default.createElement(
 	        'table',
 	        { className: 'table table-striped' },
@@ -24272,7 +24284,7 @@
 	            _react2.default.createElement(
 	              'th',
 	              null,
-	              'Concurrency'
+	              'Cost'
 	            ),
 	            _react2.default.createElement(
 	              'th',
@@ -24319,7 +24331,7 @@
 	              _react2.default.createElement(
 	                'td',
 	                null,
-	                job.changelog[0].spec.parallelism
+	                _this3.state.costs[job.name]
 	              ),
 	              _react2.default.createElement(
 	                'td',
@@ -24328,6 +24340,11 @@
 	                  'a',
 	                  { target: '_blank', href: "/jobs/" + job.name + "/logs" },
 	                  'Logs'
+	                ),
+	                _react2.default.createElement(
+	                  'a',
+	                  { target: '_blank', href: "/jobs_use/" + job.name + "" },
+	                  'Use'
 	                )
 	              )
 	            );

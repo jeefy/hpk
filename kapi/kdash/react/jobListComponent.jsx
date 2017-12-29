@@ -9,16 +9,27 @@ class JobListComponent extends React.Component {
     super(props);
 
     this.state = {
-      jobs: []
+      jobs: [],
+      costs: {},
     };
   }
   componentDidMount() {
     axios.get(`/jobs`)
-      .then(res => {
-        this.setState({ "jobs": res.data });
+      .then(jobs => {
+        this.setState({ "jobs": jobs.data });
+        jobs.data.map(job => {
+          axios.get(`/jobs_use/${job.name}`)
+            .then(res => {
+              var use = res.data[0];
+              var cost = use.parallelism * ((use.cpu_cost * (use.cpu_val/1000)) + (use.memory_cost * (use.memory_val/1000)));
+              console.log("It cost " + cost);
+              var costs = this.state.costs;
+              costs[job.name] = cost;
+              this.setState({"jobs": jobs.data, "costs": costs});
+            });
+        });
       });
   }
-
   /* {this.state.jobs.map(job =>
     <JobComponent job={job} />
   )}*/
@@ -31,11 +42,11 @@ class JobListComponent extends React.Component {
             <th>Start</th>
             <th>End</th>
             <th>Command</th>
-            <th>Concurrency</th>
+            <th>Cost</th>
             <th>Logs</th>
           </tr>
           {
-            this.state.jobs.map(function(job) {
+            this.state.jobs.map(job => {
               return <tr key={job._id}>
                 <td><a target="_blank" href={"/jobs/" + job.name}>{job.name}</a></td>
                 <td>
@@ -49,8 +60,11 @@ class JobListComponent extends React.Component {
                   </Moment>
                 </td>
                 <td>{job.changelog[0].spec.template.spec.containers[0].command.join(' ')}</td>
-                <td>{job.changelog[0].spec.parallelism}</td>
-                <td><a target="_blank" href={"/jobs/" + job.name + "/logs"}>Logs</a></td>
+                <td>{ this.state.costs[job.name] }</td>
+                <td>
+                  <a target="_blank" href={"/jobs/" + job.name + "/logs"}>Logs</a>
+                  <a target="_blank" href={"/jobs_use/" + job.name + ""}>Use</a>
+                </td>
               </tr>
             })
           }
