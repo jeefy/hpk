@@ -94,6 +94,7 @@ func GenerateJobTemplate(jobValues hpkJob) *apiv1batch.Job {
 	numNodes32 := int32(jobValues.NumNodes)
 	maxCPU := resource.MustParse(jobValues.MaxCPU)
 	maxMemory := resource.MustParse(jobValues.MaxMemory)
+	maxRuntime, _ := strconv.ParseInt(jobValues.MaxRuntime, 10, 64)
 	kJob := apiv1batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobValues.JobName,
@@ -102,7 +103,8 @@ func GenerateJobTemplate(jobValues hpkJob) *apiv1batch.Job {
 			},
 		},
 		Spec: apiv1batch.JobSpec{
-			Parallelism: &numNodes32,
+			ActiveDeadlineSeconds: &maxRuntime,
+			Parallelism:           &numNodes32,
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      jobValues.JobName,
