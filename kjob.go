@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	apiv1batch "k8s.io/api/batch/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -15,14 +16,19 @@ import (
 // HPK Job object
 // Intermediary object to map command line flags into the Job Spec
 type hpkJob struct {
-	Command, Image, ImagePullPolicy, JobName, Namespace, MaxCPU, MaxMemory string
-	NumNodes                                                               int
+	Command, Image, ImagePullPolicy, JobName, Namespace, MaxCPU, MaxMemory, MaxRuntime string
+	NumNodes                                                                           int
 }
 
 type hpkJobLog struct {
 	JobName string `bson:"jobName"`
 	PodName string `bson:"podName"`
 	Log     string `bson:"log"`
+}
+
+type hpkAllocation struct {
+	Name    string `json:"name"`
+	Balance string `json:"balance"`
 }
 
 // GenerateJobName(): Generate/concat JobName
@@ -41,6 +47,48 @@ func GenerateJobNameFilter(jobName string) string {
 	return bufferLabel.String()
 }
 
+func GenerateJobCost(kubeconfig *string, job *apiv1batch.Job) float64 {
+	duration := int64(1)
+	var err error
+
+	if !job.Status.CompletionTime.IsZero() {
+		duration := job.Status.CompletionTime.Time.Sub(job.Status.StartTime.Time).Seconds()
+		if duration < 1 {
+			duration = 1
+		}
+	} else {
+		duration, err = strconv.ParseInt(job.Annotations["max-runtime"], 10, 64)
+		if err != nil {
+			log.Info("Invalid default duration set.")
+			duration = int64(1)
+		}
+
+	}
+
+	cpu_val := float64(job.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().MilliValue())
+	memory_val := float64(job.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().Value())
+	//cpu_cost, ok := useData["cpu_cost"].(float64)
+	cpu_cost, err := strconv.ParseFloat(GetCPUCost(kubeconfig, job), 64)
+	if err != nil {
+		log.Info("Invalid CPU Cost. Defaulting to Zero")
+		cpu_cost = 0
+	}
+	//memory_cost, ok := useData["memory_cost"].(float64)
+	memory_cost, err := strconv.ParseFloat(GetMemoryCost(kubeconfig, job), 64)
+	if err != nil {
+		log.Info("Invalid Memory Cost. Defaulting to Zero")
+		memory_cost = 0
+	}
+
+	total_cost := float64(*job.Spec.Parallelism) * (float64(duration)*((cpu_val/1000)*cpu_cost) + ((memory_val / 1000) * memory_cost))
+	if total_cost < 0.01 {
+		log.Info("Floor met. Setting total cost to 0.01")
+		total_cost = 0.01
+	}
+
+	return total_cost
+}
+
 // GenerateJobTemplate(): Applys hpkJob object to an *apiv1batch.Job
 func GenerateJobTemplate(jobValues hpkJob) *apiv1batch.Job {
 	numNodes32 := int32(jobValues.NumNodes)
@@ -49,6 +97,9 @@ func GenerateJobTemplate(jobValues hpkJob) *apiv1batch.Job {
 	kJob := apiv1batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobValues.JobName,
+			Annotations: map[string]string{
+				"max-runtime": jobValues.MaxRuntime,
+			},
 		},
 		Spec: apiv1batch.JobSpec{
 			Parallelism: &numNodes32,

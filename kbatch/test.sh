@@ -2,3 +2,4 @@
 
 echo "sup ribs";
 hostname
+sleep 30;

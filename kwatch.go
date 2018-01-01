@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -67,13 +68,20 @@ func KWatch() {
 			AddFunc: func(obj interface{}) {
 				if resource, ok := obj.(*apiv1batch.Job); ok {
 					c := session.DB("hpk").C("jobs")
-					bsonjson := JSONtoBSON(resource)
-					err := c.Insert(bson.M{"name": resource.GetName(), "changelog": []interface{}{bsonjson}})
+					count, err := c.Find(bson.M{"name": resource.GetName()}).Count()
 					if err != nil {
-						log.Panic(err)
+						log.Info(err)
 					}
-					log.Info(fmt.Sprintf("Job %s@%s created\n", resource.Name, resource.Namespace))
-
+					if count > 0 {
+						log.Info(fmt.Sprintf("Duplicate job found: %s", resource.GetName()))
+					} else {
+						bsonjson := JSONtoBSON(resource)
+						err := c.Insert(bson.M{"name": resource.GetName(), "changelog": []interface{}{bsonjson}})
+						if err != nil {
+							log.Panic(err)
+						}
+						log.Info(fmt.Sprintf("Job %s@%s created\n", resource.Name, resource.Namespace))
+					}
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -91,10 +99,15 @@ func KWatch() {
 								}
 								if oldJob.Status.CompletionTime == nil && newJob.Status.CompletionTime != nil {
 									c := session.DB("hpk").C("jobs_usage")
-									c.Insert(bson.M{
+									duration := newJob.Status.CompletionTime.Time.Sub(newJob.Status.StartTime.Time).Seconds()
+									if duration < 1 {
+										duration = 1
+									}
+									useData := bson.M{
 										"name":        newJob.GetName(),
 										"start":       newJob.Status.StartTime.Time,
 										"end":         newJob.Status.CompletionTime.Time,
+										"duration":    duration,
 										"cpu_str":     newJob.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().String(),
 										"memory_str":  newJob.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().String(),
 										"cpu_val":     newJob.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().MilliValue(),
@@ -102,7 +115,26 @@ func KWatch() {
 										"cpu_cost":    GetCPUCost(kubeconfig, newJob),
 										"memory_cost": GetMemoryCost(kubeconfig, newJob),
 										"parallelism": newJob.Spec.Parallelism,
-									})
+									}
+
+									total_cost := GenerateJobCost(kubeconfig, newJob)
+									useData["total_cost"] = fmt.Sprintf("%f", total_cost)
+
+									c.Insert(useData)
+
+									c = session.DB("hpk").C("allocations")
+									var m []bson.M
+									c.Find(bson.M{"name": newJob.Spec.Template.GetNamespace()}).All(&m)
+
+									balance, err := strconv.ParseFloat(m[0]["balance"].(string), 64)
+									if err != nil {
+										log.Info("Balance not parsed to float64")
+									}
+
+									m[0]["balance"] = fmt.Sprintf("%f", balance-total_cost)
+
+									c.Upsert(bson.M{"name": newJob.Spec.Template.GetNamespace()}, m[0])
+
 									log.Info(fmt.Sprintf("Job %s@%s completed\n", newJob.Name, newJob.Namespace))
 									podsClient := clientset.CoreV1().Pods(newJob.Namespace)
 									podList, err := podsClient.List(metav1.ListOptions{
@@ -130,7 +162,8 @@ func KWatch() {
 										}
 										//fmt.Printf(string(logs[:]))
 									}
-									jobsClient.Delete(newJob.Name, &metav1.DeleteOptions{})
+									log.Info("Deleting Job: " + newJob.GetName())
+									jobsClient.Delete(newJob.GetName(), &metav1.DeleteOptions{})
 								}
 							}
 						}

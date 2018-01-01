@@ -38,7 +38,13 @@ func KRun() {
 	jobsClient := clientset.Batch().Jobs(jobValues.Namespace)
 	log.Debug("Kuberntes job client generated.")
 
-	_, jobErr := jobsClient.Create(GenerateJobTemplate(jobValues))
+	newJob := GenerateJobTemplate(jobValues)
+
+	if !JobResourceCheck(kubeconfig, newJob) {
+		log.Panic("Resources unavailable for your allocation.")
+	}
+
+	_, jobErr := jobsClient.Create(newJob)
 	if jobErr != nil {
 		log.Panic(jobErr)
 	}

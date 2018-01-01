@@ -32,6 +32,10 @@ func KBatch() {
 	log.Info("Generated batch job object")
 	log.Debug(fmt.Sprintf("%v", kJob))
 
+	if !JobResourceCheck(kubeconfig, kJob) {
+		log.Panic("Resources unavailable for your allocation.")
+	}
+
 	defaultMode := int32(0744)
 
 	kJob.Spec.Template.Spec.Volumes = append(kJob.Spec.Template.Spec.Volumes, v1.Volume{

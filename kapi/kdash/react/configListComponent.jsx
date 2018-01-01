@@ -71,10 +71,10 @@ class ConfigListComponent extends React.Component {
                   <td>{config[0]}</td>
                   <td>{config[1]}</td>
                   <td>
-                    <button type="button" className="btn btn-default" onClick={ () => this.editConfig(config) }>
+                    <button type="button" className="btn btn-sm btn-warning" onClick={ () => this.editConfig(config) }>
                       <span className="glyphicon glyphicon-pencil" aria-hidden="true"></span> Edit
                     </button>
-                    <button type="button" className="btn btn-default" onClick={ () => this.deleteConfig(config) }>
+                    <button type="button" className="btn btn-sm btn-danger" onClick={ () => this.deleteConfig(config) }>
                       <span className="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete
                     </button>
                   </td>

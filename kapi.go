@@ -47,7 +47,7 @@ func KApi() {
 		ConfigKeyHandler(w, r, kubeconfig)
 	}).Methods("GET", "PUT", "POST", "DELETE")
 	r.HandleFunc("/allocations", AllocationsCategoryHandler).Methods("GET")
-	r.HandleFunc("/allocations/{id}", AllocationsHandler).Methods("GET", "PUT", "POST")
+	r.HandleFunc("/allocations/{name}", AllocationsHandler).Methods("GET", "PUT", "POST")
 	r.HandleFunc("/jobs", JobsCategoryHandler).Methods("GET")
 	r.HandleFunc("/jobs_use/{id}", JobsUseHandler).Methods("GET")
 	r.HandleFunc("/jobs/{id}", JobsHandler).Methods("GET")
@@ -72,6 +72,8 @@ func AllocationsCategoryHandler(w http.ResponseWriter, r *http.Request) {
 		session := MongoConnect()
 		jobsQuery := session.DB("hpk").C("allocations")
 
+		InitializeAllocations(jobsQuery)
+
 		var m []bson.M
 		jobsQuery.Find(nil).Sort("name").All(&m)
 		w.WriteHeader(http.StatusOK)
@@ -88,9 +90,9 @@ func AllocationsHandler(w http.ResponseWriter, r *http.Request) {
 	session := MongoConnect()
 	jobsQuery := session.DB("hpk").C("allocations")
 	if r.Method == "GET" {
+		InitializeAllocations(jobsQuery)
 		var m []bson.M
-
-		jobsQuery.Find(bson.M{"name": vars["id"]}).All(&m)
+		jobsQuery.Find(bson.M{"name": vars["name"]}).All(&m)
 		w.WriteHeader(http.StatusOK)
 		jsonData, err := json.Marshal(m)
 		if err != nil {
@@ -99,8 +101,11 @@ func AllocationsHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%s", string(jsonData[:]))
 	}
 	if r.Method == "POST" || r.Method == "PUT" {
-		c := session.DB("hpk").C("jobs")
-		object, err := c.Upsert(bson.M{"name": vars["id"]}, bson.M{"changelog": r.Form})
+		c := session.DB("hpk").C("allocations")
+		object, err := c.Upsert(bson.M{"name": vars["name"]}, bson.M{
+			"name":    vars["name"],
+			"balance": r.PostFormValue("balance"),
+		})
 		if err != nil {
 			log.Info(err)
 		}

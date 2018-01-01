@@ -73,13 +73,18 @@
 	
 	var _configListComponent2 = _interopRequireDefault(_configListComponent);
 	
+	var _allocationListComponent = __webpack_require__(/*! ./allocationListComponent.jsx */ 338);
+	
+	var _allocationListComponent2 = _interopRequireDefault(_allocationListComponent);
+	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
 	module.exports = {
 	  JobComponent: _jobComponent2.default,
 	  JobListComponent: _jobListComponent2.default,
 	  JobLogComponent: _jobLogComponent2.default,
-	  ConfigListComponent: _configListComponent2.default
+	  ConfigListComponent: _configListComponent2.default,
+	  AllocationListComponent: _allocationListComponent2.default
 	
 	  // custom tags
 	};function render(tag, Comp) {
@@ -115,6 +120,7 @@
 	render("JobComponent", _jobComponent2.default);
 	render("JobListComponent", _jobListComponent2.default);
 	render("ConfigListComponent", _configListComponent2.default);
+	render("AllocationListComponent", _allocationListComponent2.default);
 
 /***/ }),
 /* 1 */
@@ -24199,6 +24205,10 @@
 	
 	var _reactMoment2 = _interopRequireDefault(_reactMoment);
 	
+	var _moment = __webpack_require__(/*! moment */ 213);
+	
+	var _moment2 = _interopRequireDefault(_moment);
+	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -24219,7 +24229,9 @@
 	
 	    _this.state = {
 	      jobs: [],
-	      costs: {}
+	      totals: {},
+	      rates: {},
+	      runtimes: {}
 	    };
 	    return _this;
 	  }
@@ -24230,15 +24242,28 @@
 	      var _this2 = this;
 	
 	      _axios2.default.get('/jobs').then(function (jobs) {
-	        _this2.setState({ "jobs": jobs.data });
+	        _this2.setState({
+	          "jobs": jobs.data,
+	          "totals": {},
+	          "rates": {},
+	          "runtimes": {}
+	        });
 	        jobs.data.map(function (job) {
 	          _axios2.default.get('/jobs_use/' + job.name).then(function (res) {
-	            var use = res.data[0];
-	            var cost = use.parallelism * (use.cpu_cost * (use.cpu_val / 1000) + use.memory_cost * (use.memory_val / 1000));
-	            console.log("It cost " + cost);
-	            var costs = _this2.state.costs;
-	            costs[job.name] = cost;
-	            _this2.setState({ "jobs": jobs.data, "costs": costs });
+	            var totals = _this2.state.totals;
+	            var rates = _this2.state.rates;
+	            var runtimes = _this2.state.runtimes;
+	
+	            if (res.data && "total_cost" in res.data[0]) {
+	              totals[job.name] = parseFloat(res.data[0].total_cost).toFixed(2);
+	              rates[job.name] = res.data[0].memory_cost + res.data[0].cpu_cost;
+	              runtimes[job.name] = res.data[0].duration;
+	            } else {
+	              totals[job.name] = "?";
+	              rates[job.name] = "?";
+	              runtimes[job.name] = "?";
+	            }
+	            _this2.setState({ "jobs": jobs.data, "totals": totals, "rates": rates, "runtimes": runtimes });
 	          });
 	        });
 	      });
@@ -24317,10 +24342,14 @@
 	              _react2.default.createElement(
 	                'td',
 	                null,
-	                _react2.default.createElement(
+	                'completionTime' in job.changelog[job.changelog.length - 1].status ? _react2.default.createElement(
 	                  _reactMoment2.default,
 	                  { format: 'YYYY-MM-DD HH:mm' },
 	                  job.changelog[job.changelog.length - 1].status.completionTime.replace('T', ' ')
+	                ) : _react2.default.createElement(
+	                  'b',
+	                  null,
+	                  'Still running'
 	                )
 	              ),
 	              _react2.default.createElement(
@@ -24331,19 +24360,28 @@
 	              _react2.default.createElement(
 	                'td',
 	                null,
-	                _this3.state.costs[job.name]
+	                job.name in _this3.state.totals ? _react2.default.createElement(
+	                  'i',
+	                  null,
+	                  '$',
+	                  _this3.state.totals[job.name]
+	                ) : _react2.default.createElement(
+	                  'b',
+	                  null,
+	                  '?'
+	                )
 	              ),
 	              _react2.default.createElement(
 	                'td',
 	                null,
 	                _react2.default.createElement(
 	                  'a',
-	                  { target: '_blank', href: "/jobs/" + job.name + "/logs" },
+	                  { className: 'btn btn-sm btn-info', target: '_blank', href: "/jobs/" + job.name + "/logs" },
 	                  'Logs'
 	                ),
 	                _react2.default.createElement(
 	                  'a',
-	                  { target: '_blank', href: "/jobs_use/" + job.name + "" },
+	                  { className: 'btn btn-sm btn-success', target: '_blank', href: "/jobs_use/" + job.name + "" },
 	                  'Use'
 	                )
 	              )
@@ -41431,7 +41469,7 @@
 	                  null,
 	                  _react2.default.createElement(
 	                    'button',
-	                    { type: 'button', className: 'btn btn-default', onClick: function onClick() {
+	                    { type: 'button', className: 'btn btn-sm btn-warning', onClick: function onClick() {
 	                        return _this4.editConfig(config);
 	                      } },
 	                    _react2.default.createElement('span', { className: 'glyphicon glyphicon-pencil', 'aria-hidden': 'true' }),
@@ -41439,7 +41477,7 @@
 	                  ),
 	                  _react2.default.createElement(
 	                    'button',
-	                    { type: 'button', className: 'btn btn-default', onClick: function onClick() {
+	                    { type: 'button', className: 'btn btn-sm btn-danger', onClick: function onClick() {
 	                        return _this4.deleteConfig(config);
 	                      } },
 	                    _react2.default.createElement('span', { className: 'glyphicon glyphicon-trash', 'aria-hidden': 'true' }),
@@ -41595,6 +41633,216 @@
 	}(_react2.default.Component);
 	
 	exports.default = ConfigFormComponent;
+
+/***/ }),
+/* 338 */
+/*!*******************************************!*\
+  !*** ./react/allocationListComponent.jsx ***!
+  \*******************************************/
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	var _react = __webpack_require__(/*! react */ 1);
+	
+	var _react2 = _interopRequireDefault(_react);
+	
+	var _reactDom = __webpack_require__(/*! react-dom */ 37);
+	
+	var _axios = __webpack_require__(/*! axios */ 185);
+	
+	var _axios2 = _interopRequireDefault(_axios);
+	
+	var _configFormComponent = __webpack_require__(/*! ./configFormComponent.jsx */ 337);
+	
+	var _configFormComponent2 = _interopRequireDefault(_configFormComponent);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+	
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+	
+	var AllocationListComponent = function (_React$Component) {
+	  _inherits(AllocationListComponent, _React$Component);
+	
+	  function AllocationListComponent(props) {
+	    _classCallCheck(this, AllocationListComponent);
+	
+	    var _this = _possibleConstructorReturn(this, (AllocationListComponent.__proto__ || Object.getPrototypeOf(AllocationListComponent)).call(this, props));
+	
+	    _this.refreshData = _this.refreshData.bind(_this);
+	    _this.handleInputChange = _this.handleInputChange.bind(_this);
+	    _this.handleSubmit = _this.handleSubmit.bind(_this);
+	
+	    _this.state = {
+	      allocations: [],
+	      alloc: {
+	        name: "",
+	        balance: ""
+	      }
+	    };
+	    return _this;
+	  }
+	
+	  _createClass(AllocationListComponent, [{
+	    key: 'refreshData',
+	    value: function refreshData() {
+	      var _this2 = this;
+	
+	      var confObj = {};
+	      _axios2.default.get('/allocations').then(function (res) {
+	        var state = _this2.state;
+	        state.allocations = res.data;
+	        state.alloc = {
+	          name: "",
+	          balance: ""
+	        };
+	        _this2.setState(state);
+	      });
+	    }
+	  }, {
+	    key: 'componentDidMount',
+	    value: function componentDidMount() {
+	      this.refreshData();
+	    }
+	  }, {
+	    key: 'loadAllocation',
+	    value: function loadAllocation(alloc) {
+	      var state = this.state;
+	      state.alloc = alloc;
+	      this.setState(state);
+	    }
+	  }, {
+	    key: 'handleInputChange',
+	    value: function handleInputChange(event) {
+	      var target = event.target;
+	      var value = target.type === 'checkbox' ? target.checked : target.value;
+	      var name = target.name;
+	
+	      var state = this.state;
+	      state.alloc[name] = value;
+	      this.setState(state);
+	    }
+	  }, {
+	    key: 'handleSubmit',
+	    value: function handleSubmit(event) {
+	      var _this3 = this;
+	
+	      // post request to `/config/{this.state.key}`
+	      event.preventDefault();
+	      var bodyFormData = new FormData();
+	      bodyFormData.set("balance", this.state.alloc.balance);
+	      (0, _axios2.default)({
+	        method: 'post',
+	        url: "/allocations/" + this.state.alloc.name,
+	        data: bodyFormData,
+	        config: { headers: { 'Content-Type': 'multipart/form-data' } }
+	      }).then(function (res) {
+	        _this3.refreshData();
+	      });
+	    }
+	  }, {
+	    key: 'allocationForm',
+	    value: function allocationForm() {
+	      return _react2.default.createElement(
+	        'form',
+	        { onSubmit: this.handleSubmit },
+	        _react2.default.createElement('input', { name: 'name', placeholder: 'Allocation Name', className: 'input', type: 'text', value: this.state.alloc.name, onChange: this.handleInputChange }),
+	        _react2.default.createElement('input', { name: 'balance', placeholder: 'Balance', className: 'input', type: 'text', value: this.state.alloc.balance, onChange: this.handleInputChange }),
+	        _react2.default.createElement('input', { type: 'submit' })
+	      );
+	    }
+	  }, {
+	    key: 'loadAllocation',
+	    value: function loadAllocation(alloc) {
+	      var state = this.state;
+	      state.alloc = {
+	        name: alloc.name,
+	        balance: alloc.balance
+	      };
+	      this.setState(state);
+	    }
+	  }, {
+	    key: 'render',
+	    value: function render() {
+	      var _this4 = this;
+	
+	      return _react2.default.createElement(
+	        'div',
+	        null,
+	        _react2.default.createElement(
+	          'table',
+	          { className: 'table table-striped' },
+	          _react2.default.createElement(
+	            'thead',
+	            null,
+	            _react2.default.createElement(
+	              'tr',
+	              null,
+	              _react2.default.createElement(
+	                'th',
+	                null,
+	                'Name'
+	              ),
+	              _react2.default.createElement(
+	                'th',
+	                null,
+	                'Balance'
+	              )
+	            )
+	          ),
+	          _react2.default.createElement(
+	            'tbody',
+	            null,
+	            this.state.allocations.map(function (alloc) {
+	              return _react2.default.createElement(
+	                'tr',
+	                { key: alloc._id },
+	                _react2.default.createElement(
+	                  'td',
+	                  null,
+	                  _react2.default.createElement(
+	                    'a',
+	                    { href: '#', onClick: function onClick() {
+	                        return _this4.loadAllocation(alloc);
+	                      } },
+	                    ' ',
+	                    alloc.name,
+	                    ' '
+	                  )
+	                ),
+	                _react2.default.createElement(
+	                  'td',
+	                  null,
+	                  '$',
+	                  alloc.balance
+	                )
+	              );
+	            })
+	          )
+	        ),
+	        _react2.default.createElement(
+	          'div',
+	          null,
+	          this.allocationForm()
+	        )
+	      );
+	    }
+	  }]);
+	
+	  return AllocationListComponent;
+	}(_react2.default.Component);
+	
+	exports.default = AllocationListComponent;
 
 /***/ })
 /******/ ]);

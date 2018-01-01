@@ -5,12 +5,14 @@ import JobComponent from './jobComponent.jsx';
 import JobListComponent from './jobListComponent.jsx';
 import JobLogComponent from './jobLogComponent.jsx';
 import ConfigListComponent from './configListComponent.jsx';
+import AllocationListComponent from './allocationListComponent.jsx';
 
 module.exports = {
   JobComponent,
   JobListComponent,
   JobLogComponent,
-  ConfigListComponent
+  ConfigListComponent,
+  AllocationListComponent
 }
 
 // custom tags
@@ -46,3 +48,4 @@ render("JobLogComponent", JobLogComponent);
 render("JobComponent", JobComponent);
 render("JobListComponent", JobListComponent);
 render("ConfigListComponent", ConfigListComponent)
+render("AllocationListComponent", AllocationListComponent)

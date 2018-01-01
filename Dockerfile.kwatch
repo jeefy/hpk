@@ -1,0 +1,14 @@
+FROM golang:1.9.2
+WORKDIR /go/src/github.com/jeefy/hpk/
+COPY . .
+RUN go get -d -v
+RUN cd kapi && \
+    go build
+
+FROM alpine:latest
+ENV MONGO_HOST localhost
+ENV MONGO_PORT 27017
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=0 /go/src/github.com/jeefy/hpk/kwatch/kwatch .
+ENTRYPOINT ["./kwatch"]
